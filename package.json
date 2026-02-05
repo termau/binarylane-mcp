@@ -1,0 +1,37 @@
+{
+  "name": "binarylane-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for BinaryLane VPS hosting API",
+  "main": "dist/index.js",
+  "type": "module",
+  "bin": {
+    "binarylane-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "binarylane",
+    "vps",
+    "cloud",
+    "hosting",
+    "api"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
