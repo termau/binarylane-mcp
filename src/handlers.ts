@@ -73,6 +73,8 @@ export const serverHandlers: Record<string, ToolHandler> = {
     if (params.size !== undefined) action.size = params.size;
     if (params.name !== undefined) action.name = params.name;
     if (params.backup_type !== undefined) action.backup_type = params.backup_type;
+    if (params.replacement_strategy !== undefined) action.replacement_strategy = params.replacement_strategy;
+    if (params.backup_id_to_replace !== undefined) action.backup_id_to_replace = params.backup_id_to_replace;
     if (params.label !== undefined) action.label = params.label;
     if (params.disk_id !== undefined) action.disk_id = params.disk_id;
     if (params.size_gigabytes !== undefined) action.size_gigabytes = params.size_gigabytes;
