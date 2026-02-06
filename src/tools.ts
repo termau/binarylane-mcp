@@ -261,7 +261,7 @@ Status checks:
   - is_running: Check if server is running
 
 Backup actions:
-  - take_backup: Create manual backup (params: backup_type, label)
+  - take_backup: Create manual backup (params: replacement_strategy (required), backup_type, label, backup_id_to_replace)
   - restore: Restore from backup (params: image - backup ID)
   - enable_backups / disable_backups: Toggle automatic backups
   - attach_backup / detach_backup: Mount/unmount backup for file recovery
@@ -310,7 +310,9 @@ Advanced:
         image: { type: 'string', description: 'Image ID/slug for rebuild, restore' },
         size: { type: 'string', description: 'Size slug for resize' },
         name: { type: 'string', description: 'New hostname for rename' },
-        backup_type: { type: 'string', description: 'Backup type: daily, weekly, monthly, temporary' },
+        backup_type: { type: 'string', description: 'Backup type: daily, weekly, monthly, temporary. Required for take_backup unless replacement_strategy is "specified".' },
+        replacement_strategy: { type: 'string', description: 'Strategy for which backup to replace (required for take_backup): none, specified, oldest, newest', enum: ['none', 'specified', 'oldest', 'newest'] },
+        backup_id_to_replace: { type: 'number', description: 'Backup ID to replace when replacement_strategy is "specified"' },
         label: { type: 'string', description: 'Label for backup' },
         disk_id: { type: 'number', description: 'Disk ID for disk operations' },
         size_gigabytes: { type: 'number', description: 'Disk size in GB' },

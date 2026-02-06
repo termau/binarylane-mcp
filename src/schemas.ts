@@ -158,7 +158,14 @@ export const ServerActionSchema = z.object({
     .describe('New hostname for rename action'),
   backup_type: z.enum(['daily', 'weekly', 'monthly', 'temporary'])
     .optional()
-    .describe('Backup type for take_backup action'),
+    .describe('Backup type for take_backup action. Required unless replacement_strategy is "specified".'),
+  replacement_strategy: z.enum(['none', 'specified', 'oldest', 'newest'])
+    .optional()
+    .describe('Strategy for selecting which backup to replace. Required for take_backup. "none" = use a free slot (error if none), "specified" = replace backup_id_to_replace, "oldest" = replace oldest if no free slots, "newest" = replace newest if no free slots.'),
+  backup_id_to_replace: z.number()
+    .int()
+    .optional()
+    .describe('Backup ID to replace when replacement_strategy is "specified"'),
   label: z.string()
     .optional()
     .describe('Label/description for take_backup action'),
