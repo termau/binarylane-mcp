@@ -281,7 +281,15 @@ Network:
 Advanced:
   - change_kernel: Change Linux kernel
   - change_advanced_features: Toggle features
-  - change_advanced_firewall_rules: Update firewall
+  - change_advanced_firewall_rules: Update firewall (params: firewall_rules - array of rule objects)
+    Example firewall_rules to allow SSH, HTTP, HTTPS and ICMP:
+      [
+        {"source_addresses": ["0.0.0.0/0"], "destination_addresses": ["0.0.0.0/0"], "destination_ports": ["22"], "protocol": "tcp", "action": "accept", "description": "Allow SSH"},
+        {"source_addresses": ["0.0.0.0/0"], "destination_addresses": ["0.0.0.0/0"], "destination_ports": ["80"], "protocol": "tcp", "action": "accept", "description": "Allow HTTP"},
+        {"source_addresses": ["0.0.0.0/0"], "destination_addresses": ["0.0.0.0/0"], "destination_ports": ["443"], "protocol": "tcp", "action": "accept", "description": "Allow HTTPS"},
+        {"source_addresses": ["0.0.0.0/0"], "destination_addresses": ["0.0.0.0/0"], "protocol": "icmp", "action": "accept", "description": "Allow ICMP"}
+      ]
+    Note: destination_ports must be an array of strings, not a single string. Omit destination_ports for ICMP rules. Use IPv4 ("0.0.0.0/0") and IPv6 ("::/0") separately if needed.
   - change_threshold_alerts: Configure resource alerts
   - add_disk / resize_disk / delete_disk: Manage disks
   - uncancel: Revert server cancellation`,
@@ -319,6 +327,22 @@ Advanced:
         region: { type: 'string', description: 'Region for change_region' },
         enabled: { type: 'boolean', description: 'Enable/disable flag' },
         kernel_id: { type: 'number', description: 'Kernel ID for change_kernel' },
+        firewall_rules: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              source_addresses: { type: 'array', items: { type: 'string' }, description: 'Source IP addresses/CIDR ranges (e.g. ["0.0.0.0/0"] for all IPv4)' },
+              destination_addresses: { type: 'array', items: { type: 'string' }, description: 'Destination IP addresses/CIDR ranges (e.g. ["0.0.0.0/0"] for all IPv4)' },
+              destination_ports: { type: 'array', items: { type: 'string' }, description: 'Array of port strings (e.g. ["80", "443", "8000-8100"]). Omit for ICMP rules.' },
+              protocol: { type: 'string', enum: ['tcp', 'udp', 'icmp', 'all'], description: 'Protocol (omit destination_ports when using icmp)' },
+              action: { type: 'string', enum: ['accept', 'drop'], description: 'Allow or block traffic matching this rule' },
+              description: { type: 'string', description: 'Human-readable rule description (max 250 chars)' },
+            },
+            required: ['source_addresses', 'destination_addresses', 'protocol', 'action'],
+          },
+          description: 'Firewall rules for change_advanced_firewall_rules action',
+        },
       },
       required: ['server_id', 'action_type'],
     },
