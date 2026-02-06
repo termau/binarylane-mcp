@@ -282,14 +282,17 @@ Advanced:
   - change_kernel: Change Linux kernel
   - change_advanced_features: Toggle features
   - change_advanced_firewall_rules: Update firewall (params: firewall_rules - array of rule objects)
-    Example firewall_rules to allow SSH, HTTP, HTTPS and ICMP:
+    IMPORTANT: Rules are evaluated in order. There is NO implicit deny — you MUST include explicit drop rules at the end to block unwanted traffic.
+    Example firewall_rules to allow SSH, HTTP, HTTPS, ICMP and deny everything else:
       [
         {"source_addresses": ["0.0.0.0/0"], "destination_addresses": ["0.0.0.0/0"], "destination_ports": ["22"], "protocol": "tcp", "action": "accept", "description": "Allow SSH"},
         {"source_addresses": ["0.0.0.0/0"], "destination_addresses": ["0.0.0.0/0"], "destination_ports": ["80"], "protocol": "tcp", "action": "accept", "description": "Allow HTTP"},
         {"source_addresses": ["0.0.0.0/0"], "destination_addresses": ["0.0.0.0/0"], "destination_ports": ["443"], "protocol": "tcp", "action": "accept", "description": "Allow HTTPS"},
-        {"source_addresses": ["0.0.0.0/0"], "destination_addresses": ["0.0.0.0/0"], "protocol": "icmp", "action": "accept", "description": "Allow ICMP"}
+        {"source_addresses": ["0.0.0.0/0"], "destination_addresses": ["0.0.0.0/0"], "protocol": "icmp", "action": "accept", "description": "Allow ICMP"},
+        {"source_addresses": ["0.0.0.0/0"], "destination_addresses": ["0.0.0.0/0"], "protocol": "tcp", "action": "drop", "description": "Deny all other TCP"},
+        {"source_addresses": ["0.0.0.0/0"], "destination_addresses": ["0.0.0.0/0"], "protocol": "udp", "action": "drop", "description": "Deny all other UDP"}
       ]
-    Note: destination_ports must be an array of strings, not a single string. Omit destination_ports for ICMP rules. Use IPv4 ("0.0.0.0/0") and IPv6 ("::/0") separately if needed.
+    Note: destination_ports must be an array of strings, not a single string. Omit destination_ports for ICMP rules and for catch-all drop rules. Use IPv4 ("0.0.0.0/0") and IPv6 ("::/0") separately if needed.
   - change_threshold_alerts: Configure resource alerts
   - add_disk / resize_disk / delete_disk: Manage disks
   - uncancel: Revert server cancellation`,
