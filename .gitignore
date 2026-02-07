@@ -28,3 +28,14 @@ coverage/
 
 # Package lock (optional - some prefer to commit this)
 # package-lock.json
+
+# SSH MCP (separate repo)
+ssh-mcp/
+
+# Secrets and credentials
+*.pem
+*.key
+connections.json
+
+# Claude
+.claude/

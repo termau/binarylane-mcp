@@ -79,7 +79,11 @@ export class BinaryLaneClient {
       return {} as T;
     }
 
-    const data = await response.json();
+    const text = await response.text();
+    if (!text) {
+      return {} as T;
+    }
+    const data = JSON.parse(text);
 
     if (!response.ok) {
       const error = data as ApiError;
