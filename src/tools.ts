@@ -201,14 +201,14 @@ Returns the new server details including the root password if auto-generated.
 
 Example: Create Ubuntu server in Sydney
   size: "std-1vcpu-1gb"
-  image: "ubuntu-24.04-x64"
+  image: "ubuntu-24.04"
   region: "syd"
   name: "my-web-server"
   backups: true`,
     {
       properties: {
         size: { type: 'string', description: 'Size slug (e.g., "std-min", "std-1vcpu-1gb")' },
-        image: { type: 'string', description: 'Image ID or slug (e.g., "ubuntu-24.04-x64")' },
+        image: { type: 'string', description: 'Image ID or slug (e.g., "ubuntu-24.04")' },
         region: { type: 'string', description: 'Region slug (syd, mel, bne, per)' },
         name: { type: 'string', description: 'Server hostname' },
         backups: { type: 'boolean', description: 'Enable automatic backups' },
@@ -217,7 +217,7 @@ Example: Create Ubuntu server in Sydney
         ssh_keys: { type: 'array', items: { type: 'number' }, description: 'SSH key IDs' },
         user_data: { type: 'string', description: 'Cloud-init user data script' },
         password: { type: 'string', description: 'Root password' },
-        port_blocking: { type: 'boolean', description: 'Enable outbound port blocking' },
+        port_blocking: { type: 'boolean', description: 'Enable outbound port blocking (enabled by default; set false for servers needing outbound HTTPS/DNS/apt/certbot)' },
       },
       required: ['size', 'image', 'region'],
     },
@@ -274,7 +274,7 @@ Configuration:
 
 Network:
   - enable_ipv6 / change_ipv6: Configure IPv6
-  - change_port_blocking: Toggle outbound port blocking
+  - change_port_blocking: Toggle outbound port blocking (enabled by default on new servers; disable for servers that need outbound HTTPS, DNS, apt, certbot, etc.)
   - change_network / change_vpc_ipv4: Network configuration
   - change_reverse_name: Set reverse DNS
 
@@ -282,17 +282,19 @@ Advanced:
   - change_kernel: Change Linux kernel
   - change_advanced_features: Toggle features
   - change_advanced_firewall_rules: Update firewall (params: firewall_rules - array of rule objects)
-    IMPORTANT: Rules are evaluated in order. There is NO implicit deny — you MUST include explicit drop rules at the end to block unwanted traffic.
-    Example firewall_rules to allow SSH, HTTP, HTTPS, ICMP and deny everything else:
+    IMPORTANT: The firewall is STATELESS. Rules are evaluated in order. There is NO implicit deny — you MUST include explicit drop rules at the end.
+    IMPORTANT: You MUST include a UDP 53 (DNS) accept rule BEFORE any UDP drop rule, otherwise the server cannot resolve hostnames (apt, certbot, etc. will break).
+    Example firewall_rules to allow SSH, HTTP, HTTPS, DNS, ICMP and deny everything else:
       [
         {"source_addresses": ["0.0.0.0/0"], "destination_addresses": ["0.0.0.0/0"], "destination_ports": ["22"], "protocol": "tcp", "action": "accept", "description": "Allow SSH"},
         {"source_addresses": ["0.0.0.0/0"], "destination_addresses": ["0.0.0.0/0"], "destination_ports": ["80"], "protocol": "tcp", "action": "accept", "description": "Allow HTTP"},
         {"source_addresses": ["0.0.0.0/0"], "destination_addresses": ["0.0.0.0/0"], "destination_ports": ["443"], "protocol": "tcp", "action": "accept", "description": "Allow HTTPS"},
         {"source_addresses": ["0.0.0.0/0"], "destination_addresses": ["0.0.0.0/0"], "protocol": "icmp", "action": "accept", "description": "Allow ICMP"},
+        {"source_addresses": ["0.0.0.0/0"], "destination_addresses": ["0.0.0.0/0"], "destination_ports": ["53"], "protocol": "udp", "action": "accept", "description": "Allow DNS"},
         {"source_addresses": ["0.0.0.0/0"], "destination_addresses": ["0.0.0.0/0"], "protocol": "tcp", "action": "drop", "description": "Deny all other TCP"},
         {"source_addresses": ["0.0.0.0/0"], "destination_addresses": ["0.0.0.0/0"], "protocol": "udp", "action": "drop", "description": "Deny all other UDP"}
       ]
-    Note: destination_ports must be an array of strings, not a single string. Omit destination_ports for ICMP rules and for catch-all drop rules. Use IPv4 ("0.0.0.0/0") and IPv6 ("::/0") separately if needed.
+    Note: destination_ports must be an array of strings, not a single string. Omit destination_ports for ICMP rules and for catch-all drop rules (use empty array or omit entirely). Use IPv4 ("0.0.0.0/0") and IPv6 ("::/0") separately if needed.
   - change_threshold_alerts: Configure resource alerts
   - add_disk / resize_disk / delete_disk: Manage disks
   - uncancel: Revert server cancellation`,
@@ -308,12 +310,14 @@ Advanced:
             'password_reset', 'disable_selinux',
             'take_backup', 'restore', 'enable_backups', 'disable_backups',
             'attach_backup', 'detach_backup', 'clone_using_backup',
+            'change_backup_schedule', 'change_offsite_backup_location', 'change_manage_offsite_backup_copies',
             'rebuild', 'resize', 'change_region',
             'add_disk', 'resize_disk', 'delete_disk',
             'enable_ipv6', 'change_ipv6', 'change_port_blocking',
             'change_network', 'change_vpc_ipv4',
             'change_reverse_name', 'change_ipv6_reverse_nameservers',
-            'rename', 'uncancel', 'change_kernel',
+            'change_separate_private_network_interface', 'change_source_and_destination_check',
+            'rename', 'uncancel', 'change_kernel', 'change_partner',
             'change_advanced_features', 'change_advanced_firewall_rules',
             'change_threshold_alerts',
           ],
@@ -329,6 +333,22 @@ Advanced:
         size_gigabytes: { type: 'number', description: 'Disk size in GB' },
         region: { type: 'string', description: 'Region for change_region' },
         enabled: { type: 'boolean', description: 'Enable/disable flag' },
+        ipv4_address: { type: 'string', description: 'IPv4 address for change_vpc_ipv4' },
+        reverse_name: { type: 'string', description: 'Reverse DNS name for change_reverse_name' },
+        features: { type: 'object', description: 'Feature map for change_advanced_features (e.g., {"virtio_network": true})' },
+        threshold_alerts: {
+          type: 'array',
+          description: 'Threshold alerts for change_threshold_alerts',
+          items: {
+            type: 'object',
+            properties: {
+              alert_type: { type: 'string', description: 'Alert type (e.g., cpu, memory, disk, storage-requests)' },
+              value: { type: 'number', description: 'Threshold value' },
+              enabled: { type: 'boolean', description: 'Enable/disable this alert' },
+            },
+          },
+        },
+        target_server_id: { type: 'number', description: 'Target server ID for clone_using_backup' },
         kernel_id: { type: 'number', description: 'Kernel ID for change_kernel' },
         firewall_rules: {
           type: 'array',
@@ -685,7 +705,7 @@ Use to find image IDs/slugs for server creation.`,
     'get_image',
     `Get details of a specific image.
 
-Accepts either numeric ID or slug (e.g., "ubuntu-24.04-x64").`,
+Accepts either numeric ID or slug (e.g., "ubuntu-24.04").`,
     {
       properties: {
         image_id: { type: 'string', description: 'Image ID or slug' },
@@ -1145,28 +1165,68 @@ export const loadBalancerTools: Tool[] = [
 Load balancers are regionless — they are anycast and their location is determined by
 the servers assigned to them, not by a region parameter. Do NOT specify a region.
 
+IMPORTANT: After creating a load balancer, each backend server MUST have the LB's
+anycast IP added as a secondary address on its loopback interface:
+  ip addr add <LB_IP>/32 dev lo
+Persist this with /etc/netplan/60-lb-loopback.yaml. Without this, health checks
+fail and the LB will not forward traffic.
+
 Requires at least one forwarding rule.
-Example forwarding rule:
+
+Example HTTP forwarding rule:
   entry_protocol: "http", entry_port: 80,
-  target_protocol: "http", target_port: 8080`,
+  target_protocol: "http", target_port: 80
+
+Example HTTPS TLS passthrough (backends handle SSL):
+  entry_protocol: "https", entry_port: 443,
+  target_protocol: "https", target_port: 443,
+  tls_passthrough: true
+
+Health check hostname defaults to the LB name. If your backend nginx uses
+server_name matching, set health_check hostname to your actual domain.`,
     {
       properties: {
         name: { type: 'string', description: 'Load balancer name' },
         forwarding_rules: {
           type: 'array',
-          description: 'Forwarding rules',
+          description: 'Forwarding rules (at least one required)',
           items: {
             type: 'object',
             properties: {
-              entry_protocol: { type: 'string' },
-              entry_port: { type: 'number' },
-              target_protocol: { type: 'string' },
-              target_port: { type: 'number' },
+              entry_protocol: { type: 'string', description: 'Protocol: http, https, tcp, udp' },
+              entry_port: { type: 'number', description: 'Incoming port' },
+              target_protocol: { type: 'string', description: 'Backend protocol: http, https, tcp, udp' },
+              target_port: { type: 'number', description: 'Backend port' },
+              tls_passthrough: { type: 'boolean', description: 'Pass TLS directly to backend without terminating (for HTTPS)' },
+              certificate_id: { type: 'string', description: 'SSL certificate ID (if LB terminates TLS)' },
             },
           },
         },
-        server_ids: { type: 'array', items: { type: 'number' }, description: 'Backend servers' },
+        health_check: {
+          type: 'object',
+          description: 'Health check configuration',
+          properties: {
+            protocol: { type: 'string', description: 'Protocol: http, https, tcp' },
+            port: { type: 'number', description: 'Port to check' },
+            path: { type: 'string', description: 'HTTP path (e.g., /health)' },
+            check_interval_seconds: { type: 'number', description: 'Interval between checks (3-300)' },
+            response_timeout_seconds: { type: 'number', description: 'Timeout per check (3-300)' },
+            unhealthy_threshold: { type: 'number', description: 'Failed checks before unhealthy (2-10)' },
+            healthy_threshold: { type: 'number', description: 'Passed checks before healthy (2-10)' },
+          },
+        },
+        sticky_sessions: {
+          type: 'object',
+          description: 'Sticky session configuration',
+          properties: {
+            type: { type: 'string', description: 'Type: cookies or none' },
+            cookie_name: { type: 'string', description: 'Cookie name for session affinity' },
+            cookie_ttl_seconds: { type: 'number', description: 'Cookie TTL in seconds' },
+          },
+        },
+        server_ids: { type: 'array', items: { type: 'number' }, description: 'Backend server IDs' },
         algorithm: { type: 'string', description: 'round_robin or least_connections' },
+        size_slug: { type: 'string', description: 'Load balancer size slug' },
       },
       required: ['name', 'forwarding_rules'],
     },
@@ -1175,13 +1235,50 @@ Example forwarding rule:
 
   defineTool(
     'update_load_balancer',
-    `Update load balancer configuration.`,
+    `Update load balancer configuration including name, algorithm, health checks, forwarding rules, and sticky sessions.`,
     {
       properties: {
         load_balancer_id: { type: 'number', description: 'Load balancer ID' },
         name: { type: 'string', description: 'New name' },
+        forwarding_rules: {
+          type: 'array',
+          description: 'Updated forwarding rules (replaces all existing rules)',
+          items: {
+            type: 'object',
+            properties: {
+              entry_protocol: { type: 'string', description: 'Protocol: http, https, tcp, udp' },
+              entry_port: { type: 'number', description: 'Incoming port' },
+              target_protocol: { type: 'string', description: 'Backend protocol' },
+              target_port: { type: 'number', description: 'Backend port' },
+              tls_passthrough: { type: 'boolean', description: 'Pass TLS directly to backend' },
+              certificate_id: { type: 'string', description: 'SSL certificate ID' },
+            },
+          },
+        },
+        health_check: {
+          type: 'object',
+          description: 'Updated health check configuration',
+          properties: {
+            protocol: { type: 'string', description: 'Protocol: http, https, tcp' },
+            port: { type: 'number', description: 'Port to check' },
+            path: { type: 'string', description: 'HTTP path (e.g., /health)' },
+            check_interval_seconds: { type: 'number', description: 'Interval between checks' },
+            response_timeout_seconds: { type: 'number', description: 'Timeout per check' },
+            unhealthy_threshold: { type: 'number', description: 'Failed checks before unhealthy' },
+            healthy_threshold: { type: 'number', description: 'Passed checks before healthy' },
+          },
+        },
+        sticky_sessions: {
+          type: 'object',
+          description: 'Sticky session configuration',
+          properties: {
+            type: { type: 'string', description: 'Type: cookies or none' },
+            cookie_name: { type: 'string', description: 'Cookie name' },
+            cookie_ttl_seconds: { type: 'number', description: 'Cookie TTL' },
+          },
+        },
         server_ids: { type: 'array', items: { type: 'number' }, description: 'Server IDs' },
-        algorithm: { type: 'string', description: 'Algorithm' },
+        algorithm: { type: 'string', description: 'round_robin or least_connections' },
       },
       required: ['load_balancer_id'],
     },
@@ -1250,10 +1347,12 @@ Example forwarding rule:
           items: {
             type: 'object',
             properties: {
-              entry_protocol: { type: 'string' },
-              entry_port: { type: 'number' },
-              target_protocol: { type: 'string' },
-              target_port: { type: 'number' },
+              entry_protocol: { type: 'string', description: 'Protocol: http, https, tcp, udp' },
+              entry_port: { type: 'number', description: 'Incoming port' },
+              target_protocol: { type: 'string', description: 'Backend protocol' },
+              target_port: { type: 'number', description: 'Backend port' },
+              tls_passthrough: { type: 'boolean', description: 'Pass TLS directly to backend' },
+              certificate_id: { type: 'string', description: 'SSL certificate ID' },
             },
           },
         },
@@ -1271,14 +1370,16 @@ Example forwarding rule:
         load_balancer_id: { type: 'number', description: 'Load balancer ID' },
         forwarding_rules: {
           type: 'array',
-          description: 'Rules to remove',
+          description: 'Rules to remove (must match existing rules exactly)',
           items: {
             type: 'object',
             properties: {
-              entry_protocol: { type: 'string' },
-              entry_port: { type: 'number' },
-              target_protocol: { type: 'string' },
-              target_port: { type: 'number' },
+              entry_protocol: { type: 'string', description: 'Protocol: http, https, tcp, udp' },
+              entry_port: { type: 'number', description: 'Incoming port' },
+              target_protocol: { type: 'string', description: 'Backend protocol' },
+              target_port: { type: 'number', description: 'Backend port' },
+              tls_passthrough: { type: 'boolean', description: 'Pass TLS directly to backend' },
+              certificate_id: { type: 'string', description: 'SSL certificate ID' },
             },
           },
         },

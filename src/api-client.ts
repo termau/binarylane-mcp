@@ -69,7 +69,7 @@ export class BinaryLaneClient {
       headers,
     };
 
-    if (body && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
+    if (body && (method === 'POST' || method === 'PUT' || method === 'PATCH' || method === 'DELETE')) {
       options.body = JSON.stringify(body);
     }
 

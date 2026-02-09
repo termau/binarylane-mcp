@@ -60,7 +60,7 @@ export const CreateServerSchema = z.object({
     .min(1)
     .describe('Size slug (e.g., "std-min", "std-1vcpu-1gb", "std-2vcpu-2gb"). Use list_sizes to see available options.'),
   image: z.union([z.string(), z.number()])
-    .describe('Image ID or slug (e.g., "ubuntu-24.04-x64", "debian-12-x64"). Use list_images to see available options.'),
+    .describe('Image ID or slug (e.g., "ubuntu-24.04", "debian-12-x64"). Use list_images to see available options.'),
   region: z.string()
     .min(1)
     .describe('Region slug (e.g., "syd" for Sydney, "mel" for Melbourne, "bne" for Brisbane, "per" for Perth)'),
@@ -269,7 +269,7 @@ export const ListImagesSchema = PaginationSchema.extend({
 
 export const ImageIdSchema = z.object({
   image_id: z.union([z.number(), z.string()])
-    .describe('Image ID or slug (e.g., "ubuntu-24.04-x64" or 12345)'),
+    .describe('Image ID or slug (e.g., "ubuntu-24.04" or 12345)'),
 });
 
 export const UpdateImageSchema = z.object({
@@ -372,10 +372,10 @@ export const CreateDomainRecordSchema = z.object({
     .describe('Port for SRV records'),
   ttl: z.number()
     .int()
-    .min(60)
+    .min(3600)
     .max(86400)
     .optional()
-    .describe('TTL in seconds (default: 3600)'),
+    .describe('TTL in seconds (minimum 3600, default: 3600)'),
   weight: z.number()
     .int()
     .min(0)
@@ -638,7 +638,7 @@ export const SoftwareIdSchema = z.object({
 
 export const SoftwareForOSSchema = z.object({
   operating_system_id: z.union([z.string(), z.number()])
-    .describe('Operating system ID or slug (e.g., "ubuntu-24.04-x64")'),
+    .describe('Operating system ID or slug (e.g., "ubuntu-24.04")'),
   page: z.number().int().min(1).optional(),
   per_page: z.number().int().min(1).max(200).optional(),
 });
