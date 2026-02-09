@@ -530,9 +530,9 @@ export const CreateLoadBalancerSchema = z.object({
     .min(1)
     .max(250)
     .describe('Load balancer name'),
-  region: z.string()
-    .min(1)
-    .describe('Region slug (e.g., "syd", "mel")'),
+  // region is intentionally omitted. BinaryLane load balancers are anycast —
+  // their location is determined by the servers assigned to them, not by a
+  // region parameter. Passing a region causes an IP allocation error.
   forwarding_rules: z.array(ForwardingRuleSchema)
     .min(1)
     .describe('At least one forwarding rule is required'),

@@ -1142,6 +1142,9 @@ export const loadBalancerTools: Tool[] = [
     'create_load_balancer',
     `Create a new load balancer.
 
+Load balancers are regionless — they are anycast and their location is determined by
+the servers assigned to them, not by a region parameter. Do NOT specify a region.
+
 Requires at least one forwarding rule.
 Example forwarding rule:
   entry_protocol: "http", entry_port: 80,
@@ -1149,7 +1152,6 @@ Example forwarding rule:
     {
       properties: {
         name: { type: 'string', description: 'Load balancer name' },
-        region: { type: 'string', description: 'Region slug' },
         forwarding_rules: {
           type: 'array',
           description: 'Forwarding rules',
@@ -1166,7 +1168,7 @@ Example forwarding rule:
         server_ids: { type: 'array', items: { type: 'number' }, description: 'Backend servers' },
         algorithm: { type: 'string', description: 'round_robin or least_connections' },
       },
-      required: ['name', 'region', 'forwarding_rules'],
+      required: ['name', 'forwarding_rules'],
     },
     { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true }
   ),
