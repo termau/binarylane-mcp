@@ -10,6 +10,17 @@ A Model Context Protocol (MCP) server for interacting with the [BinaryLane](http
 - **Actionable Errors**: Clear error messages with suggestions for resolution
 - **Well-Documented**: Every tool includes detailed descriptions with examples
 
+## Prerequisites
+
+Before installing binarylane-mcp, ensure you have:
+
+- **Node.js 18.0.0 or higher** - Check with `node --version`
+- **npm or yarn package manager**
+
+Install Node.js from:
+- macOS/Windows: https://nodejs.org/
+- Linux: https://nodejs.org/en/download/package-manager/
+
 ## Installation
 
 ```bash
@@ -102,6 +113,20 @@ If your server needs outbound connectivity, set `port_blocking: false` during cr
 - `delete_image` - Delete backup image
 - `update_image` - Update image metadata
 - `get_image_download` - Get download URL
+
+#### Image Slug Format
+
+**IMPORTANT:** BinaryLane image slugs do NOT include architecture suffixes.
+
+✅ **Correct format:**
+- `ubuntu-24.04` (not ubuntu-24.04-x64)
+- `debian-12` (not debian-12-amd64)
+- `fedora-40`
+- `centos-stream-9`
+
+❌ **Incorrect format:**
+- ~~`ubuntu-24.04-x64`~~ - Architecture suffixes not used
+- ~~`debian-12-arm64`~~ - Architecture handled by server plan
 
 ### SSH Key Management
 - `list_ssh_keys` - List SSH keys
@@ -223,6 +248,92 @@ BinaryLane firewalls are **STATELESS** with **NO implicit deny**. Critical requi
 ]
 ```
 
+## Common Workflows and Examples
+
+This section provides step-by-step instructions for common tasks using the MCP tools.
+
+### Creating a Web Server
+
+1. **Create the server with port_blocking disabled for outbound HTTPS:**
+```javascript
+create_server({
+  name: "web-app-1",
+  region: "syd",
+  image: "ubuntu-24.04",
+  size: "vps-1vcpu-1gb",
+  port_blocking: false  // Enable outbound HTTPS
+})
+```
+
+2. **Wait for server to be active, then configure firewall:**
+```javascript
+server_action({
+  server_id: <server_id>,
+  type: "change_advanced_firewall_rules",
+  firewall_rules: [
+    {source_addresses: ["0.0.0.0/0"], destination_ports: ["22"], protocol: "tcp", action: "accept"},
+    {source_addresses: ["0.0.0.0/0"], destination_ports: ["80"], protocol: "tcp", action: "accept"},
+    {source_addresses: ["0.0.0.0/0"], destination_ports: ["443"], protocol: "tcp", action: "accept"},
+    {source_addresses: ["0.0.0.0/0"], destination_ports: ["53"], protocol: "udp", action: "accept"},
+    {source_addresses: ["0.0.0.0/0"], protocol: "tcp", action: "drop"},
+    {source_addresses: ["0.0.0.0/0"], protocol: "udp", action: "drop"}
+  ]
+})
+```
+
+### Setting Up a Load-Balanced Application
+
+1. **Create backend servers:**
+```javascript
+create_server({name: "app-1", region: "syd", image: "ubuntu-24.04", size: "vps-2vcpu-4gb"})
+create_server({name: "app-2", region: "mel", image: "ubuntu-24.04", size: "vps-2vcpu-4gb"})
+```
+
+2. **Create load balancer (regionless/anycast):**
+```javascript
+create_load_balancer({
+  name: "app-lb",
+  forwarding_rules: [{entry_protocol: "http", entry_port: 80, target_protocol: "http", target_port: 80}],
+  health_check: {protocol: "http", port: 80, path: "/health"}
+})
+```
+
+3. **Add servers to load balancer:**
+```javascript
+add_servers_to_load_balancer({
+  load_balancer_id: <lb_id>,
+  server_ids: [<app_1_id>, <app_2_id>]
+})
+```
+
+4. **Configure loopback VIP on each backend (required):**
+SSH to each server and run:
+```bash
+ip addr add <LB_IP>/32 dev lo
+# Persist with netplan in /etc/netplan/60-lb-loopback.yaml
+```
+
+### Backing Up and Restoring Servers
+
+1. **Take a snapshot:**
+```javascript
+server_action({
+  server_id: <server_id>,
+  type: "take_backup",
+  backup_type: "snapshot",
+  label: "pre-upgrade-backup"
+})
+```
+
+2. **Restore from backup:**
+```javascript
+server_action({
+  server_id: <server_id>,
+  type: "restore",
+  image: <backup_id>
+})
+```
+
 ## Development
 
 ```bash
@@ -232,6 +343,48 @@ npm run build
 # Watch mode (development)
 npm run dev
 ```
+
+## Troubleshooting
+
+### Authentication Errors
+**Problem:** API calls fail with 401/403 errors
+**Solutions:**
+- Verify token is set: `echo $BINARYLANE_API_TOKEN`
+- Check token format (should be raw token, not wrapped in quotes)
+- Regenerate token in BinaryLane console if expired
+- Test with `get_account` tool to verify authentication
+
+### Server Creation Fails
+**Problem:** `create_server` returns validation or quota errors
+**Solutions:**
+- Use `list_regions` to verify valid region codes
+- Use `list_sizes` to get valid size slugs
+- Check account limits with `get_account`
+- Ensure image slug format is correct (no architecture suffix)
+
+### DNS Updates Not Working
+**Problem:** DNS changes don't propagate
+**Solutions:**
+- TTL minimum is 3600 seconds (1 hour) on BinaryLane
+- Allow 24-48 hours for global propagation
+- Use `refresh_nameserver_cache` to force cache update
+- Clear local DNS cache for testing
+
+### Load Balancer Health Checks Failing
+**Problem:** Backends marked unhealthy
+**Solutions:**
+- Ensure loopback VIP is configured on each backend (`ip addr add <LB_IP>/32 dev lo`)
+- Verify application listens on all interfaces (0.0.0.0, not just public IP)
+- Check health check path returns 200 OK
+- Review firewall rules don't block health check traffic
+
+### Firewall Rules Break Connectivity
+**Problem:** Server loses network after firewall changes
+**Solutions:**
+- Remember firewalls are **stateless** - need explicit rules for both directions
+- **No implicit deny** - must add explicit DROP rules at end
+- Include UDP 53 (DNS) before UDP DROP rule
+- Test incrementally, starting with SSH access
 
 ## Project Structure
 
