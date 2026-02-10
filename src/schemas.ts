@@ -5,19 +5,41 @@
 
 import { z } from 'zod';
 
+// ==================== Constants ====================
+
+// Numeric limits
+const MAX_INT32 = 2147483647;
+const MAX_PORT = 65535;
+
+// Pagination
+const MAX_PER_PAGE = 200;
+
+// String lengths
+const MAX_NAME_LENGTH = 250;
+const MAX_DESCRIPTION_LENGTH = 1000;
+
+// DNS TTL (in seconds)
+const MIN_TTL_SECONDS = 3600;  // 1 hour
+const MAX_TTL_SECONDS = 86400; // 24 hours
+
+// Other limits
+const MAX_PRIORITY = 255;
+const MAX_HEALTH_CHECK_INTERVAL = 300;
+const MAX_HEALTH_CHECK_THRESHOLD = 10;
+
 // ==================== Common Schemas ====================
 
 export const PaginationSchema = z.object({
   page: z.number()
     .int()
     .min(1)
-    .max(2147483647)
+    .max(MAX_INT32)
     .default(1)
     .describe('Page number (starts at 1)'),
   per_page: z.number()
     .int()
     .min(1)
-    .max(200)
+    .max(MAX_PER_PAGE)
     .default(20)
     .describe('Results per page (max 200)'),
 }).partial();
@@ -66,7 +88,7 @@ export const CreateServerSchema = z.object({
     .describe('Region slug (e.g., "syd" for Sydney, "mel" for Melbourne, "bne" for Brisbane, "per" for Perth)'),
   name: z.string()
     .regex(/^[a-zA-Z0-9][a-zA-Z0-9-]{0,248}[a-zA-Z0-9]$/, 'Server name must start and end with alphanumeric character, can contain hyphens')
-    .max(250)
+    .max(MAX_NAME_LENGTH)
     .optional()
     .describe('Server hostname (auto-generated if not provided)'),
   backups: z.boolean()
@@ -84,7 +106,7 @@ export const CreateServerSchema = z.object({
     .optional()
     .describe('SSH key IDs or fingerprints to add for root access'),
   user_data: z.string()
-    .max(65535)
+    .max(MAX_PORT)
     .optional()
     .describe('Cloud-init user data script for server initialization'),
   password: z.string()
@@ -252,7 +274,7 @@ export const ServerMetricsSchema = z.object({
     .optional()
     .describe('End time in ISO8601 format'),
   page: z.number().int().min(1).optional(),
-  per_page: z.number().int().min(1).max(200).optional(),
+  per_page: z.number().int().min(1).max(MAX_PER_PAGE).optional(),
 });
 
 export const UploadBackupSchema = z.object({
@@ -290,11 +312,11 @@ export const UpdateImageSchema = z.object({
     .positive()
     .describe('Image ID to update'),
   name: z.string()
-    .max(250)
+    .max(MAX_NAME_LENGTH)
     .optional()
     .describe('New image name'),
   description: z.string()
-    .max(1000)
+    .max(MAX_DESCRIPTION_LENGTH)
     .optional()
     .describe('New image description'),
 });
@@ -311,7 +333,7 @@ export const SshKeyIdSchema = z.object({
 export const CreateSshKeySchema = z.object({
   name: z.string()
     .min(1)
-    .max(250)
+    .max(MAX_NAME_LENGTH)
     .describe('Friendly name for the SSH key'),
   public_key: z.string()
     .regex(/^(ssh-rsa|ssh-ed25519|ecdsa-sha2-nistp256) [A-Za-z0-9+/]+=*/, 'Invalid SSH public key format')
@@ -328,7 +350,7 @@ export const UpdateSshKeySchema = z.object({
     .positive()
     .describe('SSH key ID to update'),
   name: z.string()
-    .max(250)
+    .max(MAX_NAME_LENGTH)
     .optional()
     .describe('New name for the key'),
   default: z.boolean()
@@ -374,19 +396,19 @@ export const CreateDomainRecordSchema = z.object({
   priority: z.number()
     .int()
     .min(0)
-    .max(65535)
+    .max(MAX_PORT)
     .optional()
     .describe('Priority for MX and SRV records (lower = higher priority)'),
   port: z.number()
     .int()
     .min(0)
-    .max(65535)
+    .max(MAX_PORT)
     .optional()
     .describe('Port for SRV records'),
   ttl: z.number()
     .int()
-    .min(3600)
-    .max(86400)
+    .min(MIN_TTL_SECONDS)
+    .max(MAX_TTL_SECONDS)
     .optional()
     .describe('TTL in seconds (minimum 3600, default: 3600)'),
   weight: z.number()
@@ -397,7 +419,7 @@ export const CreateDomainRecordSchema = z.object({
   flags: z.number()
     .int()
     .min(0)
-    .max(255)
+    .max(MAX_PRIORITY)
     .optional()
     .describe('Flags for CAA records'),
   tag: z.string()
@@ -426,7 +448,7 @@ export const VpcIdSchema = z.object({
 export const CreateVpcSchema = z.object({
   name: z.string()
     .min(1)
-    .max(250)
+    .max(MAX_NAME_LENGTH)
     .describe('VPC name'),
   ip_range: z.string()
     .optional()
@@ -439,6 +461,7 @@ export const RouteEntrySchema = z.object({
   destination: z.string()
     .describe('Destination CIDR'),
   description: z.string()
+    .max(MAX_NAME_LENGTH)
     .optional()
     .describe('Route description'),
 });
@@ -449,7 +472,7 @@ export const UpdateVpcSchema = z.object({
     .positive()
     .describe('VPC ID to update'),
   name: z.string()
-    .max(250)
+    .max(MAX_NAME_LENGTH)
     .optional()
     .describe('New VPC name'),
   route_entries: z.array(RouteEntrySchema)
@@ -466,7 +489,7 @@ export const VpcMembersSchema = z.object({
     .optional()
     .describe('Filter by resource type'),
   page: z.number().int().min(1).optional(),
-  per_page: z.number().int().min(1).max(200).optional(),
+  per_page: z.number().int().min(1).max(MAX_PER_PAGE).optional(),
 });
 
 // ==================== Load Balancer Schemas ====================
@@ -484,14 +507,14 @@ export const ForwardingRuleSchema = z.object({
   entry_port: z.number()
     .int()
     .min(1)
-    .max(65535)
+    .max(MAX_PORT)
     .describe('Port for incoming traffic'),
   target_protocol: z.enum(['http', 'https', 'tcp', 'udp'])
     .describe('Protocol for backend servers'),
   target_port: z.number()
     .int()
     .min(1)
-    .max(65535)
+    .max(MAX_PORT)
     .describe('Port on backend servers'),
   certificate_id: z.string()
     .optional()
@@ -507,7 +530,7 @@ export const HealthCheckSchema = z.object({
   port: z.number()
     .int()
     .min(1)
-    .max(65535)
+    .max(MAX_PORT)
     .describe('Health check port'),
   path: z.string()
     .optional()
@@ -518,25 +541,25 @@ export const HealthCheckSchema = z.object({
   check_interval_seconds: z.number()
     .int()
     .min(3)
-    .max(300)
+    .max(MAX_HEALTH_CHECK_INTERVAL)
     .optional()
     .describe('Interval between health checks'),
   response_timeout_seconds: z.number()
     .int()
     .min(3)
-    .max(300)
+    .max(MAX_HEALTH_CHECK_INTERVAL)
     .optional()
     .describe('Timeout for health check response'),
   unhealthy_threshold: z.number()
     .int()
     .min(2)
-    .max(10)
+    .max(MAX_HEALTH_CHECK_THRESHOLD)
     .optional()
     .describe('Failed checks before marking unhealthy'),
   healthy_threshold: z.number()
     .int()
     .min(2)
-    .max(10)
+    .max(MAX_HEALTH_CHECK_THRESHOLD)
     .optional()
     .describe('Successful checks before marking healthy'),
 });
@@ -544,7 +567,7 @@ export const HealthCheckSchema = z.object({
 export const CreateLoadBalancerSchema = z.object({
   name: z.string()
     .min(1)
-    .max(250)
+    .max(MAX_NAME_LENGTH)
     .describe('Load balancer name'),
   // region is intentionally omitted. BinaryLane load balancers are anycast —
   // their location is determined by the servers assigned to them, not by a
@@ -578,7 +601,7 @@ export const UpdateLoadBalancerSchema = z.object({
     .positive()
     .describe('Load balancer ID to update'),
   name: z.string()
-    .max(250)
+    .max(MAX_NAME_LENGTH)
     .optional()
     .describe('New name'),
   forwarding_rules: z.array(ForwardingRuleSchema)
@@ -656,7 +679,7 @@ export const SoftwareForOSSchema = z.object({
   operating_system_id: z.union([z.string(), z.number()])
     .describe('Operating system ID or slug (e.g., "ubuntu-24.04")'),
   page: z.number().int().min(1).optional(),
-  per_page: z.number().int().min(1).max(200).optional(),
+  per_page: z.number().int().min(1).max(MAX_PER_PAGE).optional(),
 });
 
 // ==================== Reverse DNS Schemas ====================
