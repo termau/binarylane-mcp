@@ -499,6 +499,9 @@ export const HealthCheckSchema = z.object({
   path: z.string()
     .optional()
     .describe('Health check path for HTTP/HTTPS'),
+  hostname: z.string()
+    .optional()
+    .describe('Host header for HTTP/HTTPS health checks'),
   check_interval_seconds: z.number()
     .int()
     .min(3)
