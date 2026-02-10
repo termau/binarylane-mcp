@@ -647,10 +647,161 @@ export interface CreateServerRequest {
   password?: string;
 }
 
-export interface ServerAction {
+// Base type for all server actions
+interface BaseServerAction {
   type: string;
-  [key: string]: unknown;
 }
+
+// Simple actions with no parameters
+interface SimpleServerAction extends BaseServerAction {
+  type: 'power_on' | 'power_off' | 'reboot' | 'shutdown' | 'power_cycle' |
+        'ping' | 'uptime' | 'is_running' |
+        'password_reset' | 'disable_selinux' |
+        'enable_backups' | 'disable_backups' | 'detach_backup' |
+        'enable_ipv6' | 'uncancel';
+}
+
+// Actions that require an image parameter
+interface ImageServerAction extends BaseServerAction {
+  type: 'rebuild' | 'restore' | 'attach_backup';
+  image: string | number;
+}
+
+// Resize action
+interface ResizeServerAction extends BaseServerAction {
+  type: 'resize';
+  size: string;
+}
+
+// Rename action
+interface RenameServerAction extends BaseServerAction {
+  type: 'rename';
+  name: string;
+}
+
+// Take backup action with optional parameters
+interface TakeBackupServerAction extends BaseServerAction {
+  type: 'take_backup';
+  backup_type?: 'daily' | 'weekly' | 'monthly' | 'temporary';
+  replacement_strategy?: 'none' | 'specified' | 'oldest' | 'newest';
+  backup_id_to_replace?: number;
+  label?: string;
+}
+
+// Clone using backup
+interface CloneUsingBackupServerAction extends BaseServerAction {
+  type: 'clone_using_backup';
+  image: string | number;
+  target_server_id: number;
+}
+
+// Disk operations
+interface AddDiskServerAction extends BaseServerAction {
+  type: 'add_disk';
+  size_gigabytes: number;
+}
+
+interface ResizeDiskServerAction extends BaseServerAction {
+  type: 'resize_disk';
+  disk_id: number;
+  size_gigabytes: number;
+}
+
+interface DeleteDiskServerAction extends BaseServerAction {
+  type: 'delete_disk';
+  disk_id: number;
+}
+
+// Network: VPC IPv4
+interface ChangeVpcIpv4ServerAction extends BaseServerAction {
+  type: 'change_vpc_ipv4';
+  ipv4_address: string;
+}
+
+// Network: Reverse name
+interface ChangeReverseNameServerAction extends BaseServerAction {
+  type: 'change_reverse_name';
+  reverse_name: string;
+}
+
+// Toggle actions (enabled/disabled)
+interface ToggleServerAction extends BaseServerAction {
+  type: 'change_ipv6' | 'change_port_blocking' | 'change_network' |
+        'change_source_and_destination_check' | 'change_separate_private_network_interface';
+  enabled: boolean;
+}
+
+// Advanced features
+interface AdvancedFeaturesServerAction extends BaseServerAction {
+  type: 'change_advanced_features';
+  features: Record<string, boolean>;
+}
+
+// Advanced firewall rules
+interface AdvancedFirewallServerAction extends BaseServerAction {
+  type: 'change_advanced_firewall_rules';
+  firewall_rules: AdvancedFirewallRule[];
+}
+
+// Threshold alerts
+interface ThresholdAlertsServerAction extends BaseServerAction {
+  type: 'change_threshold_alerts';
+  threshold_alerts: Array<{
+    alert_type: string;
+    value: number;
+    enabled: boolean;
+  }>;
+}
+
+// Change kernel
+interface ChangeKernelServerAction extends BaseServerAction {
+  type: 'change_kernel';
+  kernel: number;
+}
+
+// Change region
+interface ChangeRegionServerAction extends BaseServerAction {
+  type: 'change_region';
+  region: string;
+}
+
+// Backup schedule actions (parameters not yet defined in schema)
+interface BackupScheduleServerAction extends BaseServerAction {
+  type: 'change_backup_schedule' | 'change_offsite_backup_location' | 'change_manage_offsite_backup_copies';
+}
+
+// IPv6 reverse nameservers (parameters not yet defined in schema)
+interface ChangeIpv6ReverseNameserversServerAction extends BaseServerAction {
+  type: 'change_ipv6_reverse_nameservers';
+}
+
+// Change partner (parameters not yet defined in schema)
+interface ChangePartnerServerAction extends BaseServerAction {
+  type: 'change_partner';
+}
+
+// Union type of all possible server actions
+export type ServerAction =
+  | SimpleServerAction
+  | ImageServerAction
+  | ResizeServerAction
+  | RenameServerAction
+  | TakeBackupServerAction
+  | CloneUsingBackupServerAction
+  | AddDiskServerAction
+  | ResizeDiskServerAction
+  | DeleteDiskServerAction
+  | ChangeVpcIpv4ServerAction
+  | ChangeReverseNameServerAction
+  | ToggleServerAction
+  | AdvancedFeaturesServerAction
+  | AdvancedFirewallServerAction
+  | ThresholdAlertsServerAction
+  | ChangeKernelServerAction
+  | ChangeRegionServerAction
+  | BackupScheduleServerAction
+  | ChangeIpv6ReverseNameserversServerAction
+  | ChangePartnerServerAction;
 
 export interface Action {
   id: number;
