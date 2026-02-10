@@ -27,7 +27,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { ZodError } from 'zod';
 
-import { BinaryLaneClient } from './api-client.js';
+import { BinaryLaneClient, ApiError } from './api-client.js';
 import { allTools } from './tools.js';
 import { allHandlers } from './handlers.js';
 
@@ -68,34 +68,35 @@ function formatError(error: unknown): string {
     return `Validation error: ${issues}. Please check the parameter values and try again.`;
   }
 
-  // Handle API errors
+  // Handle API errors with type checking
+  if (error instanceof ApiError) {
+    // Provide actionable suggestions based on HTTP status codes
+    switch (error.statusCode) {
+      case 401:
+        return 'Authentication failed. Please verify your BINARYLANE_API_TOKEN is valid and not expired.';
+      case 403:
+        return 'Permission denied. Your API token may not have access to this resource.';
+      case 404:
+        return 'Resource not found. Please verify the ID exists using the appropriate list tool.';
+      case 409:
+        return 'Conflict: The operation cannot be completed in the current state. Check if another operation is in progress.';
+      case 422:
+        return `Invalid request: ${error.message}. Check that all required parameters are provided with valid values.`;
+      case 429:
+        return 'Rate limit exceeded. Please wait a moment before retrying.';
+      case 500:
+      case 502:
+      case 503:
+      case 504:
+        return 'BinaryLane API error. This may be temporary - please try again in a few moments.';
+      default:
+        return `API error (${error.statusCode}): ${error.message}`;
+    }
+  }
+
+  // Fallback for non-API errors
   if (error instanceof Error) {
-    const message = error.message;
-
-    // Provide actionable suggestions based on common errors
-    if (message.includes('401') || message.includes('Unauthorized')) {
-      return 'Authentication failed. Please verify your BINARYLANE_API_TOKEN is valid and not expired.';
-    }
-    if (message.includes('403') || message.includes('Forbidden')) {
-      return 'Permission denied. Your API token may not have access to this resource.';
-    }
-    if (message.includes('404') || message.includes('Not Found')) {
-      return 'Resource not found. Please verify the ID exists using the appropriate list tool.';
-    }
-    if (message.includes('409') || message.includes('Conflict')) {
-      return 'Conflict: The operation cannot be completed in the current state. Check if another operation is in progress.';
-    }
-    if (message.includes('422') || message.includes('Unprocessable')) {
-      return `Invalid request: ${message}. Check that all required parameters are provided with valid values.`;
-    }
-    if (message.includes('429') || message.includes('Too Many Requests')) {
-      return 'Rate limit exceeded. Please wait a moment before retrying.';
-    }
-    if (message.includes('500') || message.includes('Internal Server Error')) {
-      return 'BinaryLane API error. This may be temporary - please try again in a few moments.';
-    }
-
-    return `Error: ${message}`;
+    return `Error: ${error.message}`;
   }
 
   return `Unexpected error: ${String(error)}`;
