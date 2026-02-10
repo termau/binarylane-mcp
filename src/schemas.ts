@@ -226,6 +226,17 @@ export const ServerActionSchema = z.object({
     .describe('Region slug for change_region action'),
 });
 
+export const GetServerActionSchema = z.object({
+  server_id: z.number()
+    .int()
+    .positive()
+    .describe('The server ID'),
+  action_id: z.number()
+    .int()
+    .positive()
+    .describe('The action ID'),
+});
+
 export const ServerMetricsSchema = z.object({
   server_id: z.number()
     .int()

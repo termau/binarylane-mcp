@@ -5,7 +5,6 @@
 
 import { BinaryLaneClient, ServerAction } from './api-client.js';
 import * as schemas from './schemas.js';
-import { z } from 'zod';
 
 type ToolHandler = (client: BinaryLaneClient, args: unknown) => Promise<unknown>;
 
@@ -105,10 +104,7 @@ export const serverHandlers: Record<string, ToolHandler> = {
   },
 
   get_server_action: async (client, args) => {
-    const parsed = z.object({
-      server_id: z.number().int().positive(),
-      action_id: z.number().int().positive(),
-    }).parse(args);
+    const parsed = schemas.GetServerActionSchema.parse(args);
     return formatData(await client.getServerAction(parsed.server_id, parsed.action_id));
   },
 
@@ -203,8 +199,9 @@ export const imageHandlers: Record<string, ToolHandler> = {
   },
 
   delete_image: async (client, args) => {
-    const { image_id } = z.object({ image_id: z.number().int().positive() }).parse(args);
-    await client.deleteImage(image_id);
+    const { image_id } = schemas.ImageIdSchema.parse(args);
+    const numericImageId = typeof image_id === 'string' ? parseInt(image_id, 10) : image_id;
+    await client.deleteImage(numericImageId);
     return formatSuccess(`Image ${image_id} deleted`);
   },
 
@@ -214,8 +211,9 @@ export const imageHandlers: Record<string, ToolHandler> = {
   },
 
   get_image_download: async (client, args) => {
-    const { image_id } = z.object({ image_id: z.number().int().positive() }).parse(args);
-    return formatData(await client.getImageDownload(image_id));
+    const { image_id } = schemas.ImageIdSchema.parse(args);
+    const numericImageId = typeof image_id === 'string' ? parseInt(image_id, 10) : image_id;
+    return formatData(await client.getImageDownload(numericImageId));
   },
 };
 
