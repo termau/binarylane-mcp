@@ -66,27 +66,30 @@ export const serverHandlers: Record<string, ToolHandler> = {
 
   server_action: async (client, args) => {
     const params = schemas.ServerActionSchema.parse(args);
-    const action: ServerAction = { type: params.action_type };
 
-    // Map parameters to action object based on action type
-    if (params.image !== undefined) action.image = params.image;
-    if (params.size !== undefined) action.size = params.size;
-    if (params.name !== undefined) action.name = params.name;
-    if (params.backup_type !== undefined) action.backup_type = params.backup_type;
-    if (params.replacement_strategy !== undefined) action.replacement_strategy = params.replacement_strategy;
-    if (params.backup_id_to_replace !== undefined) action.backup_id_to_replace = params.backup_id_to_replace;
-    if (params.label !== undefined) action.label = params.label;
-    if (params.disk_id !== undefined) action.disk_id = params.disk_id;
-    if (params.size_gigabytes !== undefined) action.size_gigabytes = params.size_gigabytes;
-    if (params.ipv4_address !== undefined) action.ipv4_address = params.ipv4_address;
-    if (params.reverse_name !== undefined) action.reverse_name = params.reverse_name;
-    if (params.enabled !== undefined) action.enabled = params.enabled;
-    if (params.features !== undefined) action.enabled_features = params.features;
-    if (params.firewall_rules !== undefined) action.firewall_rules = params.firewall_rules;
-    if (params.threshold_alerts !== undefined) action.threshold_alerts = params.threshold_alerts;
-    if (params.target_server_id !== undefined) action.target_server_id = params.target_server_id;
-    if (params.kernel_id !== undefined) action.kernel = params.kernel_id;
-    if (params.region !== undefined) action.region = params.region;
+    // Build action object by spreading all defined parameters
+    // This automatically includes only the parameters that are present
+    const action: ServerAction = {
+      type: params.action_type,
+      ...(params.image !== undefined && { image: params.image }),
+      ...(params.size !== undefined && { size: params.size }),
+      ...(params.name !== undefined && { name: params.name }),
+      ...(params.backup_type !== undefined && { backup_type: params.backup_type }),
+      ...(params.replacement_strategy !== undefined && { replacement_strategy: params.replacement_strategy }),
+      ...(params.backup_id_to_replace !== undefined && { backup_id_to_replace: params.backup_id_to_replace }),
+      ...(params.label !== undefined && { label: params.label }),
+      ...(params.disk_id !== undefined && { disk_id: params.disk_id }),
+      ...(params.size_gigabytes !== undefined && { size_gigabytes: params.size_gigabytes }),
+      ...(params.ipv4_address !== undefined && { ipv4_address: params.ipv4_address }),
+      ...(params.reverse_name !== undefined && { reverse_name: params.reverse_name }),
+      ...(params.enabled !== undefined && { enabled: params.enabled }),
+      ...(params.features !== undefined && { features: params.features }),
+      ...(params.firewall_rules !== undefined && { firewall_rules: params.firewall_rules }),
+      ...(params.threshold_alerts !== undefined && { threshold_alerts: params.threshold_alerts }),
+      ...(params.target_server_id !== undefined && { target_server_id: params.target_server_id }),
+      ...(params.kernel_id !== undefined && { kernel: params.kernel_id }),
+      ...(params.region !== undefined && { region: params.region }),
+    } as ServerAction;
 
     return client.performServerAction(params.server_id, action);
   },
