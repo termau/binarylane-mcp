@@ -18,6 +18,22 @@ function formatData<T>(data: T): { success: true; data: T } {
   return { success: true, data };
 }
 
+// Helper for audit logging of destructive operations
+function auditLog(operation: string, params: Record<string, unknown>): void {
+  const timestamp = new Date().toISOString();
+  const sanitizedParams = { ...params };
+  // Remove sensitive data if present
+  delete sanitizedParams.token;
+  delete sanitizedParams.api_token;
+
+  console.error(JSON.stringify({
+    timestamp,
+    audit: true,
+    operation,
+    params: sanitizedParams
+  }));
+}
+
 // ==================== Account Handlers ====================
 
 export const accountHandlers: Record<string, ToolHandler> = {
@@ -64,6 +80,7 @@ export const serverHandlers: Record<string, ToolHandler> = {
 
   delete_server: async (client, args) => {
     const { server_id, reason } = schemas.DeleteServerSchema.parse(args);
+    auditLog('delete_server', { server_id, reason });
     await client.deleteServer(server_id, reason);
     return formatSuccess(`Server ${server_id} deletion initiated`);
   },
@@ -200,6 +217,7 @@ export const imageHandlers: Record<string, ToolHandler> = {
 
   delete_image: async (client, args) => {
     const { image_id } = schemas.ImageIdSchema.parse(args);
+    auditLog('delete_image', { image_id });
     const numericImageId = typeof image_id === 'string' ? parseInt(image_id, 10) : image_id;
     await client.deleteImage(numericImageId);
     return formatSuccess(`Image ${image_id} deleted`);
@@ -242,6 +260,7 @@ export const sshKeyHandlers: Record<string, ToolHandler> = {
 
   delete_ssh_key: async (client, args) => {
     const { key_id } = schemas.SshKeyIdSchema.parse(args);
+    auditLog('delete_ssh_key', { key_id });
     await client.deleteSshKey(key_id);
     return formatSuccess(`SSH key ${key_id} deleted`);
   },
@@ -267,6 +286,7 @@ export const domainHandlers: Record<string, ToolHandler> = {
 
   delete_domain: async (client, args) => {
     const { domain_name } = schemas.DomainNameSchema.parse(args);
+    auditLog('delete_domain', { domain_name });
     await client.deleteDomain(domain_name);
     return formatSuccess(`Domain ${domain_name} deleted`);
   },
@@ -293,6 +313,7 @@ export const domainHandlers: Record<string, ToolHandler> = {
 
   delete_domain_record: async (client, args) => {
     const { domain_name, record_id } = schemas.DomainRecordSchema.parse(args);
+    auditLog('delete_domain_record', { domain_name, record_id });
     await client.deleteDomainRecord(domain_name, record_id);
     return formatSuccess(`DNS record ${record_id} deleted`);
   },
@@ -341,6 +362,7 @@ export const vpcHandlers: Record<string, ToolHandler> = {
 
   delete_vpc: async (client, args) => {
     const { vpc_id } = schemas.VpcIdSchema.parse(args);
+    auditLog('delete_vpc', { vpc_id });
     await client.deleteVpc(vpc_id);
     return formatSuccess(`VPC ${vpc_id} deleted`);
   },
@@ -376,6 +398,7 @@ export const loadBalancerHandlers: Record<string, ToolHandler> = {
 
   delete_load_balancer: async (client, args) => {
     const { load_balancer_id } = schemas.LoadBalancerIdSchema.parse(args);
+    auditLog('delete_load_balancer', { load_balancer_id });
     await client.deleteLoadBalancer(load_balancer_id);
     return formatSuccess(`Load balancer ${load_balancer_id} deleted`);
   },
@@ -393,6 +416,7 @@ export const loadBalancerHandlers: Record<string, ToolHandler> = {
 
   remove_servers_from_load_balancer: async (client, args) => {
     const { load_balancer_id, server_ids } = schemas.LoadBalancerServersSchema.parse(args);
+    auditLog('remove_servers_from_load_balancer', { load_balancer_id, server_ids });
     await client.removeServersFromLoadBalancer(load_balancer_id, server_ids);
     return formatSuccess(`Removed ${server_ids.length} server(s) from load balancer ${load_balancer_id}`);
   },
@@ -405,6 +429,7 @@ export const loadBalancerHandlers: Record<string, ToolHandler> = {
 
   remove_forwarding_rules: async (client, args) => {
     const { load_balancer_id, forwarding_rules } = schemas.LoadBalancerRulesSchema.parse(args);
+    auditLog('remove_forwarding_rules', { load_balancer_id, forwarding_rules });
     await client.removeForwardingRulesFromLoadBalancer(load_balancer_id, forwarding_rules);
     return formatSuccess(`Removed ${forwarding_rules.length} forwarding rule(s)`);
   },
