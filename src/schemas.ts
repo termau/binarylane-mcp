@@ -65,6 +65,7 @@ export const CreateServerSchema = z.object({
     .min(1)
     .describe('Region slug (e.g., "syd" for Sydney, "mel" for Melbourne, "bne" for Brisbane, "per" for Perth)'),
   name: z.string()
+    .regex(/^[a-zA-Z0-9][a-zA-Z0-9-]{0,248}[a-zA-Z0-9]$/, 'Server name must start and end with alphanumeric character, can contain hyphens')
     .max(250)
     .optional()
     .describe('Server hostname (auto-generated if not provided)'),
@@ -302,6 +303,7 @@ export const CreateSshKeySchema = z.object({
     .max(250)
     .describe('Friendly name for the SSH key'),
   public_key: z.string()
+    .regex(/^(ssh-rsa|ssh-ed25519|ecdsa-sha2-nistp256) [A-Za-z0-9+/]+=*/, 'Invalid SSH public key format')
     .min(1)
     .describe('Public key content (e.g., "ssh-rsa AAAA... user@host")'),
   default: z.boolean()
