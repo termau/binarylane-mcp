@@ -857,6 +857,7 @@ export interface HealthCheck {
   protocol: string;
   port: number;
   path?: string;
+  hostname?: string;
   check_interval_seconds?: number;
   response_timeout_seconds?: number;
   unhealthy_threshold?: number;
