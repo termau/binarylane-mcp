@@ -5,7 +5,25 @@
 
 const BASE_URL = 'https://api.binarylane.com.au/v2';
 
-export interface ApiError {
+/**
+ * ApiError class for better error handling with status code preservation
+ */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public statusCode: number,
+    public details?: any
+  ) {
+    super(message);
+    this.name = 'ApiError';
+    Object.setPrototypeOf(this, ApiError.prototype);
+  }
+}
+
+/**
+ * API error response format from BinaryLane
+ */
+export interface ApiErrorResponse {
   type?: string;
   title?: string;
   status?: number;
@@ -86,8 +104,12 @@ export class BinaryLaneClient {
     const data = JSON.parse(text);
 
     if (!response.ok) {
-      const error = data as ApiError;
-      throw new Error(error.detail || error.title || `API error: ${response.status}`);
+      const error = data as ApiErrorResponse;
+      throw new ApiError(
+        error.detail || error.title || `API error: ${response.status}`,
+        response.status,
+        error
+      );
     }
 
     return data as T;
