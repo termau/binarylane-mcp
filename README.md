@@ -87,6 +87,15 @@ npm start
 - `get_server_metrics` - Get performance metrics
 - `get_server_latest_metrics` - Get latest metrics
 
+#### Important: Port Blocking
+
+New servers have **outbound port blocking enabled by default**, which blocks common spam/attack ports. This will prevent:
+- HTTPS outbound connections (apt, wget, curl over HTTPS)
+- DNS resolution in some cases
+- SSL certificate renewal (certbot, Let's Encrypt)
+
+If your server needs outbound connectivity, set `port_blocking: false` during creation or use the `change_port_blocking` server action.
+
 ### Image Management
 - `list_images` - List OS images and backups
 - `get_image` - Get image details
@@ -116,6 +125,10 @@ npm start
 - `list_ipv6_reverse_names` - List IPv6 PTR records
 - `update_ipv6_reverse` - Update IPv6 PTR record
 
+#### DNS Management Notes
+
+**TTL Constraints:** BinaryLane DNS supports a TTL range of 3600-86400 seconds (1-24 hours), with 3600 seconds (1 hour) as the standard and default value. The minimum TTL is 3600 seconds.
+
 ### VPC Management
 - `list_vpcs` - List VPCs
 - `get_vpc` - Get VPC details
@@ -135,6 +148,28 @@ npm start
 - `remove_servers_from_load_balancer` - Remove backend servers
 - `add_forwarding_rules` - Add forwarding rules
 - `remove_forwarding_rules` - Remove forwarding rules
+
+#### Load Balancer Setup Requirements
+
+BinaryLane load balancers are **anycast** and regionless. After creating a load balancer:
+
+1. **Do NOT specify a region parameter** when creating (causes IP allocation errors)
+2. **Each backend server MUST have the LB's anycast IP configured on its loopback interface:**
+   ```bash
+   ip addr add <LB_IP>/32 dev lo
+   ```
+3. **Persist the VIP** with netplan (create `/etc/netplan/60-lb-loopback.yaml`):
+   ```yaml
+   network:
+     version: 2
+     ethernets:
+       lo:
+         addresses:
+           - <LB_IP>/32
+   ```
+4. **Health check hostname** defaults to the LB name. If backends use server_name matching, update the health check hostname to your actual domain.
+
+Without the loopback VIP, health checks will fail and traffic will not be forwarded.
 
 ### Infrastructure Info
 - `list_regions` - List available regions
@@ -164,6 +199,29 @@ The `server_action` tool supports many action types:
 **Disk Operations**: add_disk, resize_disk, delete_disk
 
 **Advanced**: change_advanced_features, change_advanced_firewall_rules, change_threshold_alerts
+
+### Advanced Firewall Rules
+
+BinaryLane firewalls are **STATELESS** with **NO implicit deny**. Critical requirements:
+
+- Rules are evaluated **in order** (first match wins)
+- **MUST include explicit DROP rules** at the end or all traffic is allowed
+- **MUST allow UDP 53 (DNS) before any UDP DROP** or servers cannot resolve hostnames
+- DB-only servers **still need HTTP/HTTPS rules** for apt to work
+- Web servers need **TCP 3306 ACCEPT** for MySQL return traffic (stateless)
+
+**Example:** SSH, HTTP, HTTPS, DNS, ICMP allowed, all else blocked:
+```json
+[
+  {"source_addresses": ["0.0.0.0/0"], "destination_addresses": ["0.0.0.0/0"], "destination_ports": ["22"], "protocol": "tcp", "action": "accept"},
+  {"source_addresses": ["0.0.0.0/0"], "destination_addresses": ["0.0.0.0/0"], "destination_ports": ["80"], "protocol": "tcp", "action": "accept"},
+  {"source_addresses": ["0.0.0.0/0"], "destination_addresses": ["0.0.0.0/0"], "destination_ports": ["443"], "protocol": "tcp", "action": "accept"},
+  {"source_addresses": ["0.0.0.0/0"], "destination_addresses": ["0.0.0.0/0"], "protocol": "icmp", "action": "accept"},
+  {"source_addresses": ["0.0.0.0/0"], "destination_addresses": ["0.0.0.0/0"], "destination_ports": ["53"], "protocol": "udp", "action": "accept"},
+  {"source_addresses": ["0.0.0.0/0"], "destination_addresses": ["0.0.0.0/0"], "protocol": "tcp", "action": "drop"},
+  {"source_addresses": ["0.0.0.0/0"], "destination_addresses": ["0.0.0.0/0"], "protocol": "udp", "action": "drop"}
+]
+```
 
 ## Development
 
