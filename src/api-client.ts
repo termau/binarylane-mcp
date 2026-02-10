@@ -99,6 +99,7 @@ export class BinaryLaneClient {
 
     const text = await response.text();
     if (!text) {
+      console.warn(`Empty response body for ${method} ${path} (status ${response.status})`);
       return {} as T;
     }
     const data = JSON.parse(text);
