@@ -39,3 +39,7 @@ connections.json
 
 # Claude
 .claude/
+
+# Beads task tracking (ephemeral)
+.beads/
+.mcp.json
