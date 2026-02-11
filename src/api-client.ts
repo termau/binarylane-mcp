@@ -49,11 +49,79 @@ export interface MetaResponse {
   total?: number;
 }
 
+export interface RetryConfig {
+  maxRetries?: number;        // default: 3
+  baseDelay?: number;         // default: 1000ms
+  maxDelay?: number;          // default: 32000ms
+  backoffMultiplier?: number; // default: 2
+}
+
+export interface RateLimitConfig {
+  maxConcurrent?: number;     // default: 5
+  retryConfig?: RetryConfig;
+}
+
 export class BinaryLaneClient {
   private apiToken: string;
+  private maxConcurrent: number;
+  private retryConfig: Required<RetryConfig>;
+  private activeRequests: number = 0;
+  private requestQueue: Array<() => void> = [];
 
-  constructor(apiToken: string) {
+  constructor(apiToken: string, config?: RateLimitConfig) {
     this.apiToken = apiToken;
+    this.maxConcurrent = config?.maxConcurrent ?? 5;
+    this.retryConfig = {
+      maxRetries: config?.retryConfig?.maxRetries ?? 3,
+      baseDelay: config?.retryConfig?.baseDelay ?? 1000,
+      maxDelay: config?.retryConfig?.maxDelay ?? 32000,
+      backoffMultiplier: config?.retryConfig?.backoffMultiplier ?? 2,
+    };
+  }
+
+  private async waitForSlot(): Promise<void> {
+    if (this.activeRequests < this.maxConcurrent) {
+      this.activeRequests++;
+      return;
+    }
+
+    return new Promise<void>((resolve) => {
+      this.requestQueue.push(() => {
+        this.activeRequests++;
+        resolve();
+      });
+    });
+  }
+
+  private releaseSlot(): void {
+    this.activeRequests--;
+    const next = this.requestQueue.shift();
+    if (next) {
+      next();
+    }
+  }
+
+  private shouldRetry(statusCode: number): boolean {
+    // Retry on rate limit and server errors
+    return statusCode === 429 || statusCode === 502 || statusCode === 503 || statusCode === 504;
+  }
+
+  private calculateDelay(attempt: number, retryAfter?: number): number {
+    if (retryAfter !== undefined) {
+      return retryAfter * 1000; // Convert to milliseconds
+    }
+
+    const { baseDelay, backoffMultiplier, maxDelay } = this.retryConfig;
+    const exponentialDelay = baseDelay * Math.pow(backoffMultiplier, attempt);
+    const cappedDelay = Math.min(exponentialDelay, maxDelay);
+
+    // Add jitter (±20%)
+    const jitter = cappedDelay * 0.2 * (Math.random() * 2 - 1);
+    return Math.max(0, cappedDelay + jitter);
+  }
+
+  private async sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   private async request<T>(
@@ -62,58 +130,112 @@ export class BinaryLaneClient {
     body?: unknown,
     queryParams?: Record<string, string | number | boolean | undefined>
   ): Promise<T> {
-    let url = `${BASE_URL}${path}`;
+    await this.waitForSlot();
 
-    if (queryParams) {
-      const params = new URLSearchParams();
-      for (const [key, value] of Object.entries(queryParams)) {
-        if (value !== undefined && value !== null) {
-          params.append(key, String(value));
+    try {
+      let url = `${BASE_URL}${path}`;
+
+      if (queryParams) {
+        const params = new URLSearchParams();
+        for (const [key, value] of Object.entries(queryParams)) {
+          if (value !== undefined && value !== null) {
+            params.append(key, String(value));
+          }
+        }
+        const queryString = params.toString();
+        if (queryString) {
+          url += `?${queryString}`;
         }
       }
-      const queryString = params.toString();
-      if (queryString) {
-        url += `?${queryString}`;
+
+      const headers: Record<string, string> = {
+        'Authorization': `Bearer ${this.apiToken}`,
+        'Content-Type': 'application/json',
+      };
+
+      const options: RequestInit = {
+        method,
+        headers,
+      };
+
+      if (body && (method === 'POST' || method === 'PUT' || method === 'PATCH' || method === 'DELETE')) {
+        options.body = JSON.stringify(body);
       }
+
+      let lastError: ApiError | Error | undefined;
+
+      for (let attempt = 0; attempt <= this.retryConfig.maxRetries; attempt++) {
+        try {
+          const response = await fetch(url, options);
+
+          if (response.status === 204) {
+            return {} as T;
+          }
+
+          const text = await response.text();
+          if (!text) {
+            console.warn(`Empty response body for ${method} ${path} (status ${response.status})`);
+            return {} as T;
+          }
+          const data = JSON.parse(text);
+
+          if (!response.ok) {
+            const error = data as ApiErrorResponse;
+            const apiError = new ApiError(
+              error.detail || error.title || `API error: ${response.status}`,
+              response.status,
+              error
+            );
+
+            // Check if we should retry
+            if (attempt < this.retryConfig.maxRetries && this.shouldRetry(response.status)) {
+              lastError = apiError;
+
+              // Check for Retry-After header
+              const retryAfter = response.headers.get('Retry-After');
+              const retryAfterSeconds = retryAfter ? parseInt(retryAfter, 10) : undefined;
+              const delay = this.calculateDelay(attempt, retryAfterSeconds);
+
+              console.warn(
+                `Request failed with status ${response.status}, retrying in ${Math.round(delay)}ms (attempt ${attempt + 1}/${this.retryConfig.maxRetries})`
+              );
+
+              await this.sleep(delay);
+              continue;
+            }
+
+            throw apiError;
+          }
+
+          return data as T;
+        } catch (error) {
+          // Network errors or fetch failures
+          if (error instanceof ApiError) {
+            throw error;
+          }
+
+          // Retry on network errors
+          if (attempt < this.retryConfig.maxRetries) {
+            lastError = error as Error;
+            const delay = this.calculateDelay(attempt);
+
+            console.warn(
+              `Network error, retrying in ${Math.round(delay)}ms (attempt ${attempt + 1}/${this.retryConfig.maxRetries}): ${error}`
+            );
+
+            await this.sleep(delay);
+            continue;
+          }
+
+          throw error;
+        }
+      }
+
+      // Should never reach here, but just in case
+      throw lastError || new Error('Request failed after all retry attempts');
+    } finally {
+      this.releaseSlot();
     }
-
-    const headers: Record<string, string> = {
-      'Authorization': `Bearer ${this.apiToken}`,
-      'Content-Type': 'application/json',
-    };
-
-    const options: RequestInit = {
-      method,
-      headers,
-    };
-
-    if (body && (method === 'POST' || method === 'PUT' || method === 'PATCH' || method === 'DELETE')) {
-      options.body = JSON.stringify(body);
-    }
-
-    const response = await fetch(url, options);
-
-    if (response.status === 204) {
-      return {} as T;
-    }
-
-    const text = await response.text();
-    if (!text) {
-      console.warn(`Empty response body for ${method} ${path} (status ${response.status})`);
-      return {} as T;
-    }
-    const data = JSON.parse(text);
-
-    if (!response.ok) {
-      const error = data as ApiErrorResponse;
-      throw new ApiError(
-        error.detail || error.title || `API error: ${response.status}`,
-        response.status,
-        error
-      );
-    }
-
-    return data as T;
   }
 
   // ==================== Account ====================
