@@ -39,6 +39,26 @@ const SERVER_VERSION = '1.0.0';
 // Get API token from environment
 const API_TOKEN = process.env.BINARYLANE_API_TOKEN;
 
+/**
+ * Validates that the API token matches the expected BinaryLane format.
+ * @param token - The API token to validate
+ * @returns An error message if validation fails, otherwise null
+ */
+function validateApiToken(token: string): string | null {
+  // BinaryLane API tokens are 64 alphanumeric characters
+  const TOKEN_PATTERN = /^[a-zA-Z0-9]{64}$/;
+
+  if (token.length !== 64) {
+    return `Invalid token length: expected 64 characters, got ${token.length}`;
+  }
+
+  if (!TOKEN_PATTERN.test(token)) {
+    return 'Invalid token format: token must contain only alphanumeric characters (a-z, A-Z, 0-9)';
+  }
+
+  return null;
+}
+
 if (!API_TOKEN) {
   console.error('Error: BINARYLANE_API_TOKEN environment variable is required');
   console.error('');
@@ -47,6 +67,20 @@ if (!API_TOKEN) {
   console.error('Usage:');
   console.error('  export BINARYLANE_API_TOKEN="your-token-here"');
   console.error('  npx binarylane-mcp');
+  process.exit(1);
+}
+
+// Validate token format
+const tokenValidationError = validateApiToken(API_TOKEN);
+if (tokenValidationError) {
+  console.error('Error: Invalid BINARYLANE_API_TOKEN format');
+  console.error('');
+  console.error(`Issue: ${tokenValidationError}`);
+  console.error('');
+  console.error('Expected format: 64 alphanumeric characters (a-z, A-Z, 0-9)');
+  console.error('Example: fuHUGTGDGNA32N44mwektPk7Pg57AEBUnZMwpKGrwtMLSLaK1tM818ZdVUYok3is');
+  console.error('');
+  console.error('Get your API token from: https://home.binarylane.com.au/api-info');
   process.exit(1);
 }
 
