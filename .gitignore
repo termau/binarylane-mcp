@@ -43,3 +43,17 @@ connections.json
 # Beads task tracking (ephemeral)
 .beads/
 .mcp.json
+
+# Local development
+.worktrees/
+.agents/
+.gitattributes
+
+# Generated reports and content
+*.pdf
+*.zip
+mcp-audit-report.html
+linkedin-*.html
+linkedin-post.md
+MCP_REVIEW_ACTION_PLAN.md
+ha-test-results.zip
