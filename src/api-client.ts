@@ -1614,9 +1614,10 @@ interface ChangeIpv6ReverseNameserversServerAction extends BaseServerAction {
   type: 'change_ipv6_reverse_nameservers';
 }
 
-// Change partner (parameters not yet defined in schema)
+// Change partner
 interface ChangePartnerServerAction extends BaseServerAction {
   type: 'change_partner';
+  partner_server_id: number;
 }
 
 // Union type of all possible server actions

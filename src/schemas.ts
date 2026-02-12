@@ -242,6 +242,10 @@ export const ServerActionSchema = z.object({
     .int()
     .optional()
     .describe('Kernel ID for change_kernel action'),
+  partner_server_id: z.number()
+    .int()
+    .optional()
+    .describe('Partner server ID for change_partner action'),
   // Region
   region: z.string()
     .optional()
