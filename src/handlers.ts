@@ -109,6 +109,7 @@ export const serverHandlers: Record<string, ToolHandler> = {
       ...(params.threshold_alerts !== undefined && { threshold_alerts: params.threshold_alerts }),
       ...(params.target_server_id !== undefined && { target_server_id: params.target_server_id }),
       ...(params.kernel_id !== undefined && { kernel: params.kernel_id }),
+      ...(params.partner_server_id !== undefined && { partner_server_id: params.partner_server_id }),
       ...(params.region !== undefined && { region: params.region }),
     } as ServerAction;
 

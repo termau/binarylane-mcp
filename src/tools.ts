@@ -350,6 +350,7 @@ Advanced:
         },
         target_server_id: { type: 'number', description: 'Target server ID for clone_using_backup' },
         kernel_id: { type: 'number', description: 'Kernel ID for change_kernel' },
+        partner_server_id: { type: 'number', description: 'Partner server ID for change_partner' },
         firewall_rules: {
           type: 'array',
           items: {
