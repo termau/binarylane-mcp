@@ -78,7 +78,7 @@ if (tokenValidationError) {
   console.error(`Issue: ${tokenValidationError}`);
   console.error('');
   console.error('Expected format: 64 alphanumeric characters (a-z, A-Z, 0-9)');
-  console.error('Example: REDACTED_TOKEN');
+  console.error('Example: aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789aBcDeFgHiJkLmNoPqRsTuVwXyZ01');
   console.error('');
   console.error('Get your API token from: https://home.binarylane.com.au/api-info');
   process.exit(1);
